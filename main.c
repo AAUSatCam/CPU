@@ -44,6 +44,9 @@ extern size_t bitPosInOutString;
 
 #include <arm_neon.h>
 
+// Log defines
+#include "logSendDefines.h"
+
 // Application stuff starts here
 #define DELAY_1_SECOND		1000UL
 
@@ -57,6 +60,9 @@ SemaphoreHandle_t xCam_Configured;
 
 /*-----------------------------------------------------------*/
 char ForceImage = 0;
+
+// Debug timing variables
+TickType_t debug_timer1, debug_timer2, debug_timer3, debug_timer4, debug_timer5;
 
 /* The queue used by the Tx and Rx tasks, as described at the top of this
 file. */
@@ -83,6 +89,8 @@ int main( void )
 	// Bind CSP iface.
 	csp_iface_can_init(0x1C1F, 8, 500000, 0x1C3F);
 
+	sendToLog(bootUpInMain);
+
 	// Create task to configure the camera
 	xTaskCreate(vCameraSetup, "Camera setup", 512, NULL, tskIDLE_PRIORITY+5, &xCameraSetup);
 
@@ -90,7 +98,7 @@ int main( void )
 	xTaskCreate(vCSPTask, "CSP task", 200, NULL, tskIDLE_PRIORITY, &xCSPTask);
 
 	// Create task for camera handling
-	xTaskCreate(vCameraTask, "Camera task", 512, NULL, tskIDLE_PRIORITY+1, &xCameraTask);
+	xTaskCreate(vCameraTask, "Camera task", 512, NULL, tskIDLE_PRIORITY+2, &xCameraTask);
 
 	// Create semaphore for taking an image.
 	xCam_TakePicture = xSemaphoreCreateBinary();
@@ -162,53 +170,48 @@ static void vCameraTask ( void *pvParameters ) {
 				{
 					/* We were able to obtain the semaphore and can now access the
 					shared resource. */
+
 					TickType_t starttime = 0, stoptime = 0, tickstotal = 0;
 
-					starttime = xTaskGetTickCount();
+
 					xil_printf("\r\n ..Starting image process.. \r\n");
 
 					// Tell on CSP we are done.
 					uint8_t stuffToSend[2] = {0x1, 0xF};
 					cspSender(stuffToSend, 2, 0x1C3F, 0xF, 0xF, 0x1D);
-
-					xil_printf("Copying to compression buffer.. \r\n"); // Serial debug message.
 					gpio_toggle(71); 	// Status pin used to signal SW running state.
-					Xil_DCacheFlush();	// Flush cache to ensure cached is written to memory.
-					memcpy(&CompressionBuffer, VideoBuffer, 1920*1080*4); // Width * Height * (RGBA).
 
 					xil_printf("Starting compression.. \r\n"); // Serial debug message.
-					ReadDataToBuffer((char *)CompressionBuffer, MID);
-					/*
-					xil_printf("Calculating DCT.. \r\n"); // Serial debug message.
-					//DCTToBuffers(MID);
-					FastDCTToBuffer(MID);
-					xil_printf("Calculating quantization.. \r\n"); // Serial debug message.
-					//QuantBuffers(MID);
-					xil_printf("Calculating diff.. \r\n");
-					//DiffDCBuffers(MID);
-					xil_printf("Calculating zigzag.. \r\n");
-					//ZigzagBuffers(MID);
-					xil_printf("Calculating huffman.. \r\n");
-					//HuffmanEncode(MID);
-					xil_printf("Creating output string.. \r\n");
-					*/
+
+					starttime = xTaskGetTickCount();
+
+					Xil_DCacheFlush();	// Flush cache to ensure cached is written to memory.
+
+					memcpy(&CompressionBuffer, VideoBuffer, 1920*1080*4); // Width * Height * (RGBA).
+
 					RAMToHuffman((char *)CompressionBuffer, &ptrHuffOutput, &huffOutputSize, MID);
 
 					while(!(bitPosInOutString%8 == 0)) {
 						AddToBitString(1, 1, 0);
 					}
 
+					stoptime = xTaskGetTickCount();
+
 					// Tell on CSP we are done.
 					stuffToSend[0] = 0x1;
 					stuffToSend[1] = 0xA;
 					cspSender(stuffToSend, 2, 0x1C3F, 0xF, 0xF, 0x1D);
 
-					stoptime = xTaskGetTickCount();
-
 					gpio_toggle(71); // Status pin used to signal SW running state.
+
 					xil_printf("\r\n ..Image process done.. \r\n");
+
 					tickstotal = stoptime - starttime;
-					xil_printf("Took %d ticks to execute (%d ms).. \r\n", tickstotal, tickstotal*portTICK_PERIOD_MS);
+
+					xil_printf("Total %d ticks to execute (%d ms).. \r\n", tickstotal, tickstotal*portTICK_PERIOD_MS);
+
+					xil_printf("YCbCr: %d \t DCT: %d \t Qu: %d \t Diff: %d \t Zig: %d \t Huff: %d.. \r\n", (debug_timer1-starttime)*portTICK_PERIOD_MS, (debug_timer2-debug_timer1)*portTICK_PERIOD_MS, (debug_timer3-debug_timer2)*portTICK_PERIOD_MS,(debug_timer4-debug_timer3)*portTICK_PERIOD_MS, (debug_timer5-debug_timer4)*portTICK_PERIOD_MS,  (stoptime-debug_timer5)*portTICK_PERIOD_MS);
+
 				}
 				else
 				{
@@ -263,7 +266,7 @@ static void vCameraSetup( void *pvParameters )
 
 	vTaskDelay(pdMS_TO_TICKS(2000));
 
-	Xil_Out32(0x43c10040, 0x1);
+	Xil_Out32(0x43c10040, 0x3);
 	xil_printf("Enabled CSI.. \r\n");
 
 	huffOutputSize = 0;
