@@ -179,6 +179,9 @@ static void vCameraTask ( void *pvParameters ) {
 					// Tell on CSP we are done.
 					uint8_t stuffToSend[2] = {0x1, 0xF};
 					cspSender(stuffToSend, 2, 0x1C3F, 0xF, 0xF, 0x1D);
+
+					sendToLog(begunTakingPicture);
+
 					gpio_toggle(71); 	// Status pin used to signal SW running state.
 
 					xil_printf("Starting compression.. \r\n"); // Serial debug message.
@@ -201,6 +204,8 @@ static void vCameraTask ( void *pvParameters ) {
 					stuffToSend[0] = 0x1;
 					stuffToSend[1] = 0xA;
 					cspSender(stuffToSend, 2, 0x1C3F, 0xF, 0xF, 0x1D);
+
+					sendToLog(doneTakingPicture);
 
 					gpio_toggle(71); // Status pin used to signal SW running state.
 
