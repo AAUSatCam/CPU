@@ -10,8 +10,15 @@ int xil_setup_can(void);
  * */
 void csp_iface_can_init(int addr, int netmask, uint32_t bitrate, uint16_t logAddr);
 
+/* Function that takes data and destination information, and packages it to send with csp_send
+* */
 int cspSender(uint8_t* dataToSend, uint8_t dataLength, uint16_t destination, uint8_t sourceP, uint8_t destP, uint8_t cspFlag);
 
+/* Function that refers main to csp_servicehandler*/
 void serviceToDo (csp_packet_t *receivedPacket);
 
+/* Function that takes logmessage and sends CSP packet, with that information to log address*/
 void sendToLog(uint8_t logMessage);
+
+/* The function called from csp_send() to send with the CAN interface*/
+void canHopper(csp_iface_t *iface, uint32_t CFPID, uint8_t* frameBuf, uint8_t frameBufInp);

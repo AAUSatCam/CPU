@@ -596,13 +596,10 @@ void csp_iface_can_init(int addr, int netmask, uint32_t bitrate, uint16_t logAdd
 
 	xilCanInt.interface.netmask = netmask;
 
-	/* The MTU is configured run-time, since the buffer size can be configured externally
-	 * however, it must not exceed 2042 due to the CFP_REMAIN field limitation
-	 * CFP_REMAIN gives possibility of 255 * 8 bytes = 2040
-	 * CSP_BEGIN frame, has two additional bytes, in total 2042 */
-     xilCanInt.interface.mtu = CSP_BUFFER_SIZE; // Changed to 2042, instead of meson build from ubuntu 256.
-	if ( xilCanInt.interface.mtu > 116) {
-		 xilCanInt.interface.mtu = 116;
+	
+     xilCanInt.interface.mtu = CSP_BUFFER_SIZE;
+	if ( xilCanInt.interface.mtu > 60) {
+		 xilCanInt.interface.mtu = 60;
 	}
 
 	 xilCanInt.ifdata.pbufs = NULL;
